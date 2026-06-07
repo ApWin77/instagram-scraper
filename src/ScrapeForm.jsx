@@ -13,7 +13,7 @@ const SEARCH_TYPES = ['hashtag', 'profile', 'place', 'user']
 
 const defaultUrls = 'https://www.instagram.com/humansofny/'
 
-export default function ScrapeForm({ onSubmit, loading }) {
+export default function ScrapeForm({ onSubmit, loading, instagramConnected }) {
   const [mode, setMode] = useState('urls')
   const [urlsText, setUrlsText] = useState(defaultUrls)
   const [search, setSearch] = useState('#travel')
@@ -23,18 +23,34 @@ export default function ScrapeForm({ onSubmit, loading }) {
   const [resultsLimit, setResultsLimit] = useState(10)
   const [onlyPostsNewerThan, setOnlyPostsNewerThan] = useState('')
   const [addParentData, setAddParentData] = useState(false)
+  const [connectionType, setConnectionType] = useState('following')
+  const [targetUsername, setTargetUsername] = useState('')
 
   function handleSubmit(e) {
     e.preventDefault()
+
+    if (mode === 'connections' && !instagramConnected) {
+      return
+    }
 
     const payload = {
       resultsType,
       resultsLimit: Number(resultsLimit),
       addParentData,
+      mode,
     }
 
     if (onlyPostsNewerThan.trim()) {
       payload.onlyPostsNewerThan = onlyPostsNewerThan.trim()
+    }
+
+    if (mode === 'connections') {
+      payload.connectionType = connectionType
+      if (targetUsername.trim()) {
+        payload.targetUsername = targetUsername.trim().replace(/^@/, '')
+      }
+      onSubmit(payload)
+      return
     }
 
     if (mode === 'urls') {
@@ -70,9 +86,59 @@ export default function ScrapeForm({ onSubmit, loading }) {
         >
           Search
         </button>
+        <button
+          type="button"
+          className={mode === 'connections' ? 'active' : ''}
+          onClick={() => setMode('connections')}
+          disabled={loading || !instagramConnected}
+          title={instagramConnected ? undefined : 'Connect Instagram first'}
+        >
+          Connections
+        </button>
       </div>
 
-      {mode === 'urls' ? (
+      {mode === 'connections' ? (
+        <>
+          <p className="mode-hint">
+            Uses your connected Instagram session to export a following or followers list
+            (including private accounts you can see).
+          </p>
+          <div className="field-row">
+            <label className="field">
+              <span>List type</span>
+              <select
+                value={connectionType}
+                onChange={(e) => setConnectionType(e.target.value)}
+                disabled={loading}
+              >
+                <option value="following">Following</option>
+                <option value="followers">Followers</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>Max accounts</span>
+              <input
+                type="number"
+                min={1}
+                max={5000}
+                value={resultsLimit}
+                onChange={(e) => setResultsLimit(e.target.value)}
+                disabled={loading}
+              />
+            </label>
+          </div>
+          <label className="field">
+            <span>Target username (optional)</span>
+            <input
+              type="text"
+              value={targetUsername}
+              onChange={(e) => setTargetUsername(e.target.value)}
+              placeholder="Leave empty for your own account"
+              disabled={loading}
+            />
+          </label>
+        </>
+      ) : mode === 'urls' ? (
         <label className="field">
           <span>Instagram URLs (one per line)</span>
           <textarea
@@ -125,56 +191,71 @@ export default function ScrapeForm({ onSubmit, loading }) {
         </>
       )}
 
-      <div className="field-row">
-        <label className="field">
-          <span>Content to scrape</span>
-          <select
-            value={resultsType}
-            onChange={(e) => setResultsType(e.target.value)}
-            disabled={loading}
-          >
-            {RESULTS_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>Results limit per URL</span>
-          <input
-            type="number"
-            min={1}
-            value={resultsLimit}
-            onChange={(e) => setResultsLimit(e.target.value)}
-            disabled={loading}
-          />
-        </label>
-      </div>
+      {mode !== 'connections' && (
+        <>
+          <div className="field-row">
+            <label className="field">
+              <span>Content to scrape</span>
+              <select
+                value={resultsType}
+                onChange={(e) => setResultsType(e.target.value)}
+                disabled={loading}
+              >
+                {RESULTS_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Results limit per URL</span>
+              <input
+                type="number"
+                min={1}
+                value={resultsLimit}
+                onChange={(e) => setResultsLimit(e.target.value)}
+                disabled={loading}
+              />
+            </label>
+          </div>
 
-      <label className="field">
-        <span>Only posts newer than (optional)</span>
-        <input
-          type="text"
-          value={onlyPostsNewerThan}
-          onChange={(e) => setOnlyPostsNewerThan(e.target.value)}
-          placeholder="e.g. 1 month, 2024-01-01"
-          disabled={loading}
-        />
-      </label>
+          {instagramConnected && mode === 'urls' && (
+            <p className="mode-hint">
+              With Instagram connected, profile URLs use your session for private profiles
+              (content type: <strong>details</strong> only).
+            </p>
+          )}
 
-      <label className="checkbox-field">
-        <input
-          type="checkbox"
-          checked={addParentData}
-          onChange={(e) => setAddParentData(e.target.checked)}
-          disabled={loading}
-        />
-        <span>Add parent metadata (dataSource on feed items)</span>
-      </label>
+          <label className="field">
+            <span>Only posts newer than (optional)</span>
+            <input
+              type="text"
+              value={onlyPostsNewerThan}
+              onChange={(e) => setOnlyPostsNewerThan(e.target.value)}
+              placeholder="e.g. 1 month, 2024-01-01"
+              disabled={loading}
+            />
+          </label>
 
-      <button type="submit" className="submit-btn" disabled={loading}>
-        {loading ? 'Scraping…' : 'Start scrape'}
+          <label className="checkbox-field">
+            <input
+              type="checkbox"
+              checked={addParentData}
+              onChange={(e) => setAddParentData(e.target.checked)}
+              disabled={loading}
+            />
+            <span>Add parent metadata (dataSource on feed items)</span>
+          </label>
+        </>
+      )}
+
+      <button
+        type="submit"
+        className="submit-btn"
+        disabled={loading || (mode === 'connections' && !instagramConnected)}
+      >
+        {loading ? 'Scraping…' : mode === 'connections' ? 'Export list' : 'Start scrape'}
       </button>
     </form>
   )

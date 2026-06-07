@@ -25,8 +25,24 @@ A local React app that runs the [Apify Instagram Scraper](https://apify.com/apif
 
 - **URLs mode:** paste one or more Instagram URLs (profile, post `/p/`, reel, etc.) and choose what to scrape (posts, profile details, comments, etc.).
 - **Search mode:** enter a hashtag, profile, or place search query with a search type and limits.
+- **Connections mode (Instagram connected):** export your **following** or **followers** list, including private accounts your session can see.
 
-Results appear after the Actor run finishes. Use **Download JSON** to export the dataset items. A link to the Apify dataset is shown for each run.
+### Connect Instagram (private profiles & connections)
+
+Instagram does not offer an official OAuth scope for follower/following lists or other users’ private profiles. This app uses your **browser session cookies** after you log in:
+
+1. Click **Login with Instagram** and sign in on instagram.com.
+2. Export cookies for `instagram.com` with [Cookie-Editor](https://cookie-editor.cgagnier.ca/) (JSON format).
+3. Paste the JSON and click **Connect account**.
+
+Cookies are kept in `sessionStorage` in your browser and sent to your API only when you scrape. With a connected account:
+
+- **Connections** tab: export following/followers (yours or another username you can view).
+- **Direct URLs** + content type **details**: read private profile metadata your account can access.
+
+Public scrapes without a connected account still use the Apify Actor as before.
+
+Results appear after the run finishes. Use **Download JSON** to export items.
 
 ## Scripts
 

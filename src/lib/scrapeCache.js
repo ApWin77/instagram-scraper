@@ -7,6 +7,7 @@ function normalizeInput(input) {
     .sort()
 
   return {
+    mode: input.mode ?? 'urls',
     resultsType: input.resultsType ?? 'posts',
     directUrls,
     search: (input.search ?? '').trim(),
@@ -15,6 +16,8 @@ function normalizeInput(input) {
     resultsLimit: input.resultsLimit ?? null,
     onlyPostsNewerThan: (input.onlyPostsNewerThan ?? '').trim(),
     addParentData: Boolean(input.addParentData),
+    connectionType: input.connectionType ?? null,
+    targetUsername: (input.targetUsername ?? '').trim(),
   }
 }
 

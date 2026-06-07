@@ -1,4 +1,11 @@
 import { ApifyClient } from 'apify-client'
+import {
+  runAuthenticatedScrape,
+  validateAuthenticatedInput,
+} from './authenticatedScrape.js'
+import { cookiesToSession, resolveInstagramSession } from './instagramSession.js'
+import { fetchCurrentUser } from './instagramApi.js'
+import { logError, logInfo } from './logger.js'
 
 const ACTOR_ID = 'apify/instagram-scraper'
 const RESULTS_TYPES = ['posts', 'details', 'comments', 'reels', 'mentions', 'stories']
@@ -8,6 +15,14 @@ const DATASET_FETCH_LIMIT = 1000
 export function validateScrapeInput(body) {
   if (!body || typeof body !== 'object') {
     return { error: 'Request body must be a JSON object.' }
+  }
+
+  const useAuthenticatedScrape =
+    body.mode === 'connections' ||
+    (body.instagramSession && body.mode !== 'search' && (body.resultsType ?? 'posts') === 'details')
+
+  if (useAuthenticatedScrape) {
+    return validateAuthenticatedInput(body)
   }
 
   const directUrls = normalizeUrls(body.directUrls)
@@ -79,7 +94,45 @@ function buildActorInput(body, directUrls, search) {
   return input
 }
 
-export async function runInstagramScrape(input) {
+export async function validateInstagramSession(sessionInput, userAgent) {
+  const resolved = resolveInstagramSession(sessionInput, userAgent)
+  if (resolved.error) {
+    logError('instagram/session', 'Session resolve failed', {
+      error: resolved.error,
+    })
+    return { error: resolved.error }
+  }
+
+  const { session } = resolved
+
+  try {
+    logInfo('instagram/session', 'Validating session', {
+      cookieCount: Object.keys(session.cookies).length,
+      cookieNames: Object.keys(session.cookies),
+      userAgent: session.userAgent,
+    })
+    const user = await fetchCurrentUser(session)
+    return {
+      user,
+      session,
+      instagramSession: cookiesToSession(session.cookies, session.userAgent),
+    }
+  } catch (err) {
+    logError('instagram/session', err.message ?? 'Instagram session is invalid', {
+      cookieCount: Object.keys(session.cookies).length,
+      cookieNames: Object.keys(session.cookies),
+      userAgent: session.userAgent,
+      stack: err.stack,
+    })
+    return { error: err.message ?? 'Instagram session is invalid.' }
+  }
+}
+
+export async function runInstagramScrape(input, session) {
+  if (session) {
+    return runAuthenticatedScrape(session, input)
+  }
+
   const token = process.env.APIFY_TOKEN
   if (!token) {
     const err = new Error(

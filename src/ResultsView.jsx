@@ -55,7 +55,7 @@ export default function ResultsView({ result }) {
 
   if (!result) return null
 
-  const { runId, datasetUrl, status, itemCount, truncated, items } = result
+  const { runId, datasetUrl, status, itemCount, truncated, items, source } = result
 
   function toggleExpand(index) {
     setExpanded((prev) => ({ ...prev, [index]: !prev[index] }))
@@ -76,10 +76,8 @@ export default function ResultsView({ result }) {
           <dd>{status}</dd>
         </div>
         <div>
-          <dt>Run ID</dt>
-          <dd>
-            <code>{runId}</code>
-          </dd>
+          <dt>Source</dt>
+          <dd>{source === 'instagram-session' ? 'Instagram session' : 'Apify Actor'}</dd>
         </div>
         <div>
           <dt>Items</dt>
@@ -89,14 +87,24 @@ export default function ResultsView({ result }) {
             {truncated && ' (first page only)'}
           </dd>
         </div>
-        <div>
-          <dt>Dataset</dt>
-          <dd>
-            <a href={datasetUrl} target="_blank" rel="noreferrer">
-              Open in Apify Console
-            </a>
-          </dd>
-        </div>
+        {runId && (
+          <div>
+            <dt>Run ID</dt>
+            <dd>
+              <code>{runId}</code>
+            </dd>
+          </div>
+        )}
+        {datasetUrl && (
+          <div>
+            <dt>Dataset</dt>
+            <dd>
+              <a href={datasetUrl} target="_blank" rel="noreferrer">
+                Open in Apify Console
+              </a>
+            </dd>
+          </div>
+        )}
       </dl>
 
       {items.length === 0 ? (
@@ -105,7 +113,10 @@ export default function ResultsView({ result }) {
         <ul className="item-list">
           {items.map((item, index) => {
             const img = proxiedImageUrl(itemImage(item))
-            const link = item.url ?? item.inputUrl
+            const link =
+              item.url ??
+              item.inputUrl ??
+              (item.username ? `https://www.instagram.com/${item.username}/` : null)
             return (
               <li key={item.id ?? item.shortCode ?? index} className="item-card">
                 {img && (
