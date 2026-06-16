@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "pk": "123",
+      "code": "ABC123",
+      "caption": { "text": "Hello world" },
+      "taken_at": 1710000000,
+      "like_count": 42,
+      "comment_count": 3,
+      "image_versions2": {
+        "candidates": [{ "url": "https://cdn.example/photo.jpg" }]
+      },
+      "media_type": 1
+    }
+  ]
+}
