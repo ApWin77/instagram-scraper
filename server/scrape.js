@@ -6,22 +6,48 @@ import {
 import { cookiesToSession, resolveInstagramSession } from './instagramSession.js'
 import { fetchCurrentUser } from './instagramApi.js'
 import { logError, logInfo } from './logger.js'
+import { hasSession } from './sessionStore.js'
+import { validatePrivateScrapeInput, runPrivateScrape } from './privateScrape.js'
 
 const ACTOR_ID = 'apify/instagram-scraper'
 const RESULTS_TYPES = ['posts', 'details', 'comments', 'reels', 'mentions', 'stories']
 const SEARCH_TYPES = ['hashtag', 'profile', 'place', 'user']
 const DATASET_FETCH_LIMIT = 1000
 
+function isProfileUrl(url) {
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`)
+    const parts = parsed.pathname.split('/').filter(Boolean)
+    const first = parts[0]
+    return first && !['p', 'reel', 'reels', 'stories', 'explore', 'accounts'].includes(first)
+  } catch {
+    return false
+  }
+}
+
+function shouldUsePlaywright(body) {
+  if (body.mode === 'connections' || body.mode === 'search') return false
+  if (!hasSession()) return false
+  const resultsType = body.resultsType ?? 'posts'
+  if (resultsType !== 'posts' && resultsType !== 'details') return false
+  const urls = normalizeUrls(body.directUrls)
+  return urls.length > 0 && urls.every(isProfileUrl)
+}
+
 export function validateScrapeInput(body) {
   if (!body || typeof body !== 'object') {
     return { error: 'Request body must be a JSON object.' }
   }
 
-  const useAuthenticatedScrape =
+  if (shouldUsePlaywright(body)) {
+    return validatePrivateScrapeInput(body)
+  }
+
+  const useRestConnections =
     body.mode === 'connections' ||
     (body.instagramSession && body.mode !== 'search' && (body.resultsType ?? 'posts') === 'details')
 
-  if (useAuthenticatedScrape) {
+  if (useRestConnections) {
     return validateAuthenticatedInput(body)
   }
 
@@ -129,6 +155,9 @@ export async function validateInstagramSession(sessionInput, userAgent) {
 }
 
 export async function runInstagramScrape(input, session) {
+  if (input.usernames) {
+    return runPrivateScrape(input)
+  }
   if (session) {
     return runAuthenticatedScrape(session, input)
   }
