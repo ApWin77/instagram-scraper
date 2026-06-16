@@ -1,9 +1,8 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { runScrape } from './api/scrape.js'
 import CachePrompt from './CachePrompt.jsx'
 import InstagramAuth from './InstagramAuth.jsx'
 import { getCachedScrape, saveCachedScrape } from './lib/scrapeCache.js'
-import { getStoredSessionPayload } from './lib/instagramSession.js'
 import ScrapeForm from './ScrapeForm.jsx'
 import ResultsView from './ResultsView.jsx'
 import './App.css'
@@ -13,7 +12,11 @@ function App() {
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null)
   const [cachePrompt, setCachePrompt] = useState(null)
-  const [instagramSession, setInstagramSession] = useState(() => getStoredSessionPayload())
+  const [instagramConnected, setInstagramConnected] = useState(false)
+
+  const handleInstagramStatus = useCallback((connected) => {
+    setInstagramConnected(connected)
+  }, [])
 
   async function executeScrape(input, { fromCache = false } = {}) {
     setLoading(true)
@@ -21,7 +24,7 @@ function App() {
     if (!fromCache) setResult(null)
 
     try {
-      const data = await runScrape(input, instagramSession)
+      const data = await runScrape(input)
       setResult(data)
       saveCachedScrape(input, data)
       setCachePrompt(null)
@@ -36,7 +39,7 @@ function App() {
     setError(null)
     setCachePrompt(null)
 
-    const cached = input.mode === 'connections' || instagramSession ? null : getCachedScrape(input)
+    const cached = input.mode === 'connections' || instagramConnected ? null : getCachedScrape(input)
     if (cached) {
       setCachePrompt({ input, cached })
       setResult(null)
@@ -74,12 +77,12 @@ function App() {
         </p>
       </header>
 
-      <InstagramAuth onSessionChange={setInstagramSession} />
+      <InstagramAuth onStatusChange={handleInstagramStatus} />
 
       <ScrapeForm
         onSubmit={handleSubmit}
         loading={loading}
-        instagramConnected={Boolean(instagramSession)}
+        instagramConnected={instagramConnected}
       />
 
       {cachePrompt && !loading && (
@@ -92,7 +95,7 @@ function App() {
 
       {loading && (
         <p className="status loading-msg">
-          Running Actor on Apify… this may take a minute.
+          Running scrape… this may take a minute.
         </p>
       )}
 

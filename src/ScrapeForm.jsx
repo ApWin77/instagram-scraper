@@ -222,8 +222,8 @@ export default function ScrapeForm({ onSubmit, loading, instagramConnected }) {
 
           {instagramConnected && mode === 'urls' && (
             <p className="mode-hint">
-              With Instagram connected, profile URLs use your session for private profiles
-              (content type: <strong>details</strong> only).
+              Profile URLs use Playwright for private posts and profile details when the server
+              session is connected.
             </p>
           )}
 

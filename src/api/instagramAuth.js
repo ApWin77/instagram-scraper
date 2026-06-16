@@ -1,18 +1,5 @@
-export async function connectInstagram(instagramSession) {
-  const res = await fetch('/api/instagram/connect', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      instagramSession,
-      userAgent: navigator.userAgent,
-    }),
-  })
-
+export async function fetchInstagramStatus() {
+  const res = await fetch('/api/instagram/status')
   const data = await res.json().catch(() => ({}))
-
-  if (!res.ok) {
-    throw new Error(data.error ?? `Connection failed (${res.status})`)
-  }
-
   return data
 }
