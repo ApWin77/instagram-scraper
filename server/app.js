@@ -1,12 +1,28 @@
 import cors from 'cors'
 import express from 'express'
 import { fetchInstagramImage, isAllowedImageUrl } from './imageProxy.js'
+import { fetchCurrentUser } from './instagramApi.js'
 import { logError } from './logger.js'
 import {
   runInstagramScrape,
   validateInstagramSession,
   validateScrapeInput,
 } from './scrape.js'
+import {
+  hasSession,
+  readStorageState,
+  storageStateToCookieMap,
+  writeStorageState,
+} from './sessionStore.js'
+
+function requireAdmin(req, res) {
+  const secret = process.env.ADMIN_SECRET
+  if (!secret || req.headers['x-admin-secret'] !== secret) {
+    res.status(401).json({ error: 'Unauthorized.' })
+    return false
+  }
+  return true
+}
 
 export function createApp() {
   const app = express()
@@ -38,6 +54,33 @@ export function createApp() {
         error: err.message ?? 'Failed to load image.',
       })
     }
+  })
+
+  app.get('/api/instagram/status', async (req, res) => {
+    if (!hasSession()) {
+      return res.json({ connected: false })
+    }
+    try {
+      const state = await readStorageState()
+      const cookies = storageStateToCookieMap(state)
+      const user = await fetchCurrentUser({
+        cookies,
+        userAgent: process.env.PLAYWRIGHT_USER_AGENT || req.headers['user-agent'] || '',
+      })
+      res.json({ connected: true, user })
+    } catch {
+      res.json({ connected: false, expired: true })
+    }
+  })
+
+  app.post('/api/instagram/session/upload', async (req, res) => {
+    if (!requireAdmin(req, res)) return
+    const state = req.body?.storageState
+    if (!state?.cookies) {
+      return res.status(400).json({ error: 'Body must include storageState JSON with cookies.' })
+    }
+    await writeStorageState(state)
+    res.json({ ok: true })
   })
 
   app.post('/api/instagram/connect', async (req, res) => {
@@ -76,7 +119,7 @@ export function createApp() {
   })
 
   app.post('/api/scrape', async (req, res) => {
-    const validation = validateScrapeInput(req.body)
+    const validation = await validateScrapeInput(req.body)
     if (validation.error) {
       logError('scrape', validation.error, { mode: req.body?.mode })
       return res.status(400).json({ error: validation.error })

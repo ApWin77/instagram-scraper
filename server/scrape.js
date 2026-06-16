@@ -6,7 +6,7 @@ import {
 import { cookiesToSession, resolveInstagramSession } from './instagramSession.js'
 import { fetchCurrentUser } from './instagramApi.js'
 import { logError, logInfo } from './logger.js'
-import { hasSession } from './sessionStore.js'
+import { hasSession, readStorageState, storageStateToCookieMap } from './sessionStore.js'
 import { validatePrivateScrapeInput, runPrivateScrape } from './privateScrape.js'
 
 const ACTOR_ID = 'apify/instagram-scraper'
@@ -34,7 +34,7 @@ function shouldUsePlaywright(body) {
   return urls.length > 0 && urls.every(isProfileUrl)
 }
 
-export function validateScrapeInput(body) {
+export async function validateScrapeInput(body) {
   if (!body || typeof body !== 'object') {
     return { error: 'Request body must be a JSON object.' }
   }
@@ -48,7 +48,19 @@ export function validateScrapeInput(body) {
     (body.instagramSession && body.mode !== 'search' && (body.resultsType ?? 'posts') === 'details')
 
   if (useRestConnections) {
-    return validateAuthenticatedInput(body)
+    let bodyForAuth = body
+    if (body.mode === 'connections' && hasSession() && !body.instagramSession) {
+      const state = await readStorageState()
+      const cookies = storageStateToCookieMap(state)
+      bodyForAuth = {
+        ...body,
+        instagramSession: { cookieJar: cookies },
+        userAgent:
+          process.env.PLAYWRIGHT_USER_AGENT ||
+          (typeof body.userAgent === 'string' ? body.userAgent : ''),
+      }
+    }
+    return validateAuthenticatedInput(bodyForAuth)
   }
 
   const directUrls = normalizeUrls(body.directUrls)
