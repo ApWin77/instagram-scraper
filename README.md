@@ -29,18 +29,33 @@ A local React app that runs the [Apify Instagram Scraper](https://apify.com/apif
 
 ### Connect Instagram (private profiles & connections)
 
-Instagram does not offer an official OAuth scope for follower/following lists or other users’ private profiles. This app uses your **browser session cookies** after you log in:
+Instagram does not offer an official OAuth scope for follower/following lists or other users’ private profiles. This app stores a **Playwright `storageState` session on the server** (not in your browser):
 
-1. Click **Login with Instagram** and sign in on instagram.com.
-2. Export cookies for `instagram.com` with [Cookie-Editor](https://cookie-editor.cgagnier.ca/) (JSON format).
-3. Paste the JSON and click **Connect account**.
+**Development**
 
-Cookies are kept in `sessionStorage` in your browser and sent to your API only when you scrape. With a connected account:
+1. Run `npm run ig:login` — a headed browser opens; log in to Instagram.
+2. The script saves `data/storageState.json` locally.
+3. Start the app (`npm run dev`) — the UI polls `/api/instagram/status` and shows Connected.
+
+**Production (Railway / Docker)**
+
+1. Mount a persistent volume at `/data` (maps to `DATA_DIR`).
+2. Set environment variables: `APIFY_TOKEN`, `ADMIN_SECRET`, optionally `PLAYWRIGHT_USER_AGENT`.
+3. Bootstrap the session: run `npm run ig:login` locally, then upload `data/storageState.json`:
+
+   ```bash
+   curl -X POST https://your-app.railway.app/api/instagram/session/upload \
+     -H "Content-Type: application/json" \
+     -H "x-admin-secret: YOUR_ADMIN_SECRET" \
+     -d "{\"storageState\": $(cat data/storageState.json)}"
+   ```
+
+With a connected server session:
 
 - **Connections** tab: export following/followers (yours or another username you can view).
-- **Direct URLs** + content type **details**: read private profile metadata your account can access.
+- **Direct URLs** + content type **posts** or **details**: Playwright scrapes private profiles your account can see.
 
-Public scrapes without a connected account still use the Apify Actor as before.
+Public scrapes without a server session still use the Apify Actor as before.
 
 Results appear after the run finishes. Use **Download JSON** to export items.
 
@@ -53,7 +68,8 @@ Results appear after the run finishes. Use **Download JSON** to export items.
 | `npm run dev:client` | Vite only |
 | `npm run build` | Production frontend build |
 | `npm start` | Run production server (API + built UI) |
-| `npm run start:server` | Same as `npm start` |
+| `npm run test` | Run server unit tests |
+| `npm run ig:login` | Headed browser login → save `data/storageState.json` |
 
 ## Deploying on Vercel
 
@@ -108,7 +124,29 @@ Set `APIFY_TOKEN` in your host’s environment variables (not only in a local `.
 
 **Health check:** `GET /api/health` should return `{"ok":true,"hasToken":true}` when the token is set.
 
-**Reverse proxy (nginx):** proxy all traffic to the Node port, e.g. `proxy_pass http://127.0.0.1:3001;`
+| `npm run start:server` | Same as `npm start` |
+
+## Deploying on Railway (Playwright)
+
+This app needs **Playwright + Chromium** and a **persistent volume** for the Instagram session. Railway with Docker is the recommended production host.
+
+1. Connect the repo to [Railway](https://railway.app/) and deploy using the included `Dockerfile`.
+2. Add a **volume** mounted at `/data` (this is where `storageState.json` lives via `DATA_DIR=/data`).
+3. Set environment variables:
+
+   | Variable | Purpose |
+   |---------|---------|
+   | `APIFY_TOKEN` | Apify API token (public scrapes) |
+   | `ADMIN_SECRET` | Protects `POST /api/instagram/session/upload` |
+   | `PLAYWRIGHT_HEADLESS` | `true` (default in Docker) |
+   | `DATA_DIR` | `/data` (default in Docker) |
+
+4. Bootstrap Instagram session:
+   - Locally: `npm run ig:login` → creates `data/storageState.json`
+   - Upload to production via the admin endpoint (see **Connect Instagram** above)
+5. Verify: `GET /api/instagram/status` returns `{"connected":true,"user":{...}}`.
+
+**Note:** Playwright scrapes can take several minutes. Ensure your platform timeout allows at least 5 minutes per request.
 
 **Process manager (PM2):**
 
