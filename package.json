@@ -11,10 +11,13 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "node server/index.js",
-    "start:server": "node server/index.js"
+    "start:server": "node server/index.js",
+    "test": "node --test tests/server/**/*.test.js",
+    "ig:login": "node scripts/ig-login.js"
   },
   "dependencies": {
     "apify-client": "^2.23.3",
+    "playwright": "^1.51.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
