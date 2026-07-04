@@ -54,11 +54,17 @@ export default function InstagramAuth({ onStatusChange }) {
 
       {loading ? (
         <p className="auth-note">Checking Instagram session…</p>
-      ) : connected && user ? (
+      ) : connected ? (
         <div className="auth-connected">
           <p>
-            Signed in as <strong>@{user.username}</strong>
-            {user.fullName ? ` (${user.fullName})` : ''}
+            {user?.username ? (
+              <>
+                Signed in as <strong>@{user.username}</strong>
+                {user.fullName ? ` (${user.fullName})` : ''}
+              </>
+            ) : (
+              <>Instagram session is active on the server.</>
+            )}
           </p>
         </div>
       ) : (

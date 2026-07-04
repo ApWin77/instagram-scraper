@@ -6,7 +6,12 @@ import {
 import { cookiesToSession, resolveInstagramSession } from './instagramSession.js'
 import { fetchCurrentUser } from './instagramApi.js'
 import { logError, logInfo } from './logger.js'
-import { hasSession, readStorageState, storageStateToCookieMap } from './sessionStore.js'
+import {
+  hasSession,
+  readStorageState,
+  resolveSessionUserAgent,
+  storageStateToCookieMap,
+} from './sessionStore.js'
 import { validatePrivateScrapeInput, runPrivateScrape } from './privateScrape.js'
 
 const ACTOR_ID = 'apify/instagram-scraper'
@@ -52,12 +57,11 @@ export async function validateScrapeInput(body) {
     if (body.mode === 'connections' && hasSession() && !body.instagramSession) {
       const state = await readStorageState()
       const cookies = storageStateToCookieMap(state)
+      const userAgent = await resolveSessionUserAgent()
       bodyForAuth = {
         ...body,
         instagramSession: { cookieJar: cookies },
-        userAgent:
-          process.env.PLAYWRIGHT_USER_AGENT ||
-          (typeof body.userAgent === 'string' ? body.userAgent : ''),
+        userAgent,
       }
     }
     return validateAuthenticatedInput(bodyForAuth)

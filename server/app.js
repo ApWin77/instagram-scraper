@@ -1,17 +1,18 @@
 import cors from 'cors'
 import express from 'express'
 import { fetchInstagramImage, isAllowedImageUrl } from './imageProxy.js'
-import { fetchCurrentUser } from './instagramApi.js'
 import { logError } from './logger.js'
+import { resolveConnectedUserSafe } from './sessionUser.js'
 import {
   runInstagramScrape,
   validateInstagramSession,
   validateScrapeInput,
 } from './scrape.js'
 import {
+  hasInstagramSessionCookies,
   hasSession,
   readStorageState,
-  storageStateToCookieMap,
+  writeSessionMeta,
   writeStorageState,
 } from './sessionStore.js'
 
@@ -56,18 +57,22 @@ export function createApp() {
     }
   })
 
-  app.get('/api/instagram/status', async (req, res) => {
+  app.get('/api/instagram/status', async (_req, res) => {
     if (!hasSession()) {
       return res.json({ connected: false })
     }
     try {
       const state = await readStorageState()
-      const cookies = storageStateToCookieMap(state)
-      const user = await fetchCurrentUser({
-        cookies,
-        userAgent: process.env.PLAYWRIGHT_USER_AGENT || req.headers['user-agent'] || '',
+      if (!hasInstagramSessionCookies(state)) {
+        return res.json({ connected: false, expired: true })
+      }
+
+      const user = await resolveConnectedUserSafe(state)
+
+      res.json({
+        connected: true,
+        user,
       })
-      res.json({ connected: true, user })
     } catch {
       res.json({ connected: false, expired: true })
     }
@@ -80,6 +85,9 @@ export function createApp() {
       return res.status(400).json({ error: 'Body must include storageState JSON with cookies.' })
     }
     await writeStorageState(state)
+    if (req.body?.sessionMeta && typeof req.body.sessionMeta === 'object') {
+      await writeSessionMeta(req.body.sessionMeta)
+    }
     res.json({ ok: true })
   })
 

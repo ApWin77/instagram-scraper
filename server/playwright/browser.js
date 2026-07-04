@@ -1,5 +1,5 @@
 import { chromium } from 'playwright'
-import { getStorageStatePath, hasSession } from '../sessionStore.js'
+import { getStorageStatePath, hasSession, resolveSessionUserAgent } from '../sessionStore.js'
 
 const VIEWPORT = { width: 1280, height: 900 }
 
@@ -15,10 +15,12 @@ export async function createAuthenticatedContext(browser, dataDir) {
     throw err
   }
 
+  const userAgent = await resolveSessionUserAgent(dataDir)
+
   return browser.newContext({
     storageState: getStorageStatePath(dataDir),
     viewport: VIEWPORT,
     locale: 'en-US',
-    userAgent: process.env.PLAYWRIGHT_USER_AGENT || undefined,
+    userAgent,
   })
 }

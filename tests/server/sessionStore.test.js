@@ -31,3 +31,17 @@ test('getStorageStatePath joins DATA_DIR', async () => {
     '/tmp/data/storageState.json',
   )
 })
+
+test('hasInstagramSessionCookies requires sessionid and ds_user_id', async () => {
+  store = await import('../../server/sessionStore.js')
+  assert.equal(
+    store.hasInstagramSessionCookies({
+      cookies: [{ name: 'sessionid', value: 'a' }, { name: 'ds_user_id', value: '1' }],
+    }),
+    true,
+  )
+  assert.equal(
+    store.hasInstagramSessionCookies({ cookies: [{ name: 'sessionid', value: 'a' }] }),
+    false,
+  )
+})
